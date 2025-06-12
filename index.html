@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STF Risk Hexgrid</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            min-height: calc(100vh - 40px);
+            gap: 20px;
+        }
+
+        #controls-section {
+            width: 350px;
+            min-width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            height: calc(100vh - 40px);
+            position: sticky;
+            top: 20px;
+        }
+
+        #map-container {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.1);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #map-section {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+            cursor: grab;
+            will-change: transform;
+        }
+
+        #map-section:active {
+            cursor: grabbing;
+        }
+
+        #codon-canvas {
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+        }
+
+        h1 {
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        p {
+            color: #718096;
+            margin-bottom: 25px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        fieldset {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(247, 250, 252, 0.8);
+        }
+
+        legend {
+            font-weight: 600;
+            color: #2d3748;
+            padding: 0 10px;
+            font-size: 14px;
+        }
+
+        label {
+            display: inline-block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 13px;
+        }
+
+        input, select {
+            margin: 2px 5px 8px 0;
+            padding: 6px 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input[type="checkbox"] {
+            transform: scale(1.1);
+            margin-right: 8px;
+        }
+
+        input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        input[type="range"] {
+            width: 80px;
+        }
+
+        input[type="file"] {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 10px;
+            background: rgba(247, 250, 252, 0.5);
+            transition: all 0.2s ease;
+            width: 95%;
+        }
+
+        input[type="file"]:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        fieldset > div {
+            margin-bottom: 12px;
+        }
+
+        fieldset fieldset {
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-loaded {
+            background-color: #48bb78;
+        }
+
+        .status-not-loaded {
+            background-color: #f56565;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-btn:hover {
+            background: #764ba2;
+            transform: scale(1.1);
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id='container'>
+        <div id='controls-section'>
+            <h1>STF Risk Hexgrid</h1>
+            <p>Site Walking-Working Surface Slip-and-Fall Risk Quantification Grid</p>
+            
+            <fieldset>
+                <legend>Hexes</legend>
+                <div>
+                    <label>
+                        Size:
+                        <input id='hex-size' type='number' min=1 value=70>
+                        <select id='hex-size-type'>
+                            <option value='edge'>Edge to Edge</option>
+                            <option value='corner'>Corner to Corner</option>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>Orientation: 
+                        <select id='hex-orientation'>
+                            <option value='flat'>Flat-Top</option>
+                            <option value='pointy' selected>Pointy-Top</option>
+                        </select>
+                    </label>
+                    <label>Margin: <input id='hex-margin' type='number' min=0 value=0></label>
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Map</legend>
+                <div>
+                    <label>Shape: 
+                        <select id='map-shape'>
+                            <option value='square'>Square</option>
+                            <option value='hexagon'>Hexagon</option>
+                        </select>
+                    </label>
+                    <label id='label-map-handedness'>Handedness: 
+                        <select id='map-handedness'>
+                            <option value='even'>Even</option>
+                            <option value='odd'>Odd</option>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>Width: <input id='map-width' type='number' min=1 step=1 value=8></label>
+                    <label>Height: <input id='map-height' type='number' min=1 step=1 value=10></label>
+                </div>
+                <div>
+                    <label title="第一行n个, 第二行n-1个... 布局. 建议在Pointy-Top方向下使用。">
+                        启用交错行布局 (Staggered Rows): 
+                        <input id='layout-staggered' type='checkbox' checked>
+                    </label>
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Lines</legend>
+                <div>
+                    <label>Show: <input id='line-show' type='checkbox' checked></label>
+                </div>
+                <div>
+                    <label>Width: <input id='hex-line-width' type='number' min=0 value=1></label>
+                    <label>Style: 
+                        <select id='hex-line-dash'>
+                            <option value='solid'>Solid</option>
+                            <option value='dashed'>Dashed</option>
+                            <option value='dotted'>Dotted</option>
+                        </select>
+                    </label>                        
+                </div>
+                <div>
+                    <label>Color: <input id='hex-line-color' type='color' value='#000000'></label>
+                    <label>Transparency: <input id='hex-line-alpha' type='range' min=0 max=1 step=0.05 value=1></label>
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Fill (填充)</legend>
+                <div>
+                    <label>Show: <input id='fill-show' type='checkbox' checked></label>
+                </div>
+                <div>
+                    <label>Default Color: <input id='fill-default-color' type='color' value='#FFFFFF'></label>
+                    <label>Transparency: <input id='fill-alpha' type='range' min=0 max=1 step=0.05 value=0.3></label>
+                </div>
+                <div>
+                    <label for="file-input">上传数据文件 (.txt):</label><br>
+                    <input type="file" id="file-input" accept=".txt">
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Name Display (名称显示)</legend>
+                <div>
+                    <label>Show: <input id='names-show' type='checkbox' checked></label>
+                </div>
+                <div>
+                    <label>Font: 
+                        <select id='names-font'>
+                            <option value='serif'>Serif</option>
+                            <option value='sans-serif'>Sans-serif</option>
+                            <option value='monospace' selected>Monospace</option>
+                            <option value='Arial'>Arial</option>
+                            <option value='Courier New'>Courier New</option>
+                            <option value='Georgia'>Georgia</option>
+                            <option value='Times New Roman'>Times New Roman</option>
+                        </select>
+                    </label>
+                    <label>Size: <input id='names-size' type='number' min=1 value=14></label>
+                </div>
+                <div>
+                    <label>Bold <input id='names-bold' type='checkbox' checked></label>
+                    <label>Italic <input id='names-italic' type='checkbox'></label>
+                </div>
+                <div>
+                    <label>Color: <input id='names-color' type='color' value='#000000'></label>
+                    <label>Transparency: <input id='names-alpha' type='range' min=0 max=1 step=0.05 value=1></label>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Background Image (背景图片)</legend>
+                <div>
+                    <label for="image-input">上传背景图片:</label><br>
+                    <input type="file" id="image-input" accept="image/*">
+                </div>
+                <div>
+                    <label>Transparency: <input id='image-alpha' type='range' min=0 max=1 step=0.05 value=1.0></label>
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Coordinates (坐标)</legend>
+                <div>
+                    <label>Show: <input id='coords-show' type='checkbox'></label>
+                </div>
+                <div>
+                    <label>Style: 
+                        <select id='coords-style'>
+                            <option value='xy'>X and Y</option>
+                            <option value='index'>Index</option>
+                        </select>
+                    </label>
+                </div>
+                <div>
+                    <label>Position: 
+                        <select id='coords-position'>
+                            <option value='top'>Top</option>
+                            <option value='middle'>Middle</option>
+                            <option value='bottom'>Bottom</option>
+                        </select>
+                    </label>
+                    <label>Offset: <input id='coords-offset' type='number' value=3></label>
+                </div>
+                <div>
+                    <label>Font: <input id='coords-font' type='search' list='fonts' value='monospace'></label>
+                    <label>Size: <input id='coords-size' type='number' min=1 value=12></label>
+                </div>
+                <div>
+                    <label>Bold <input id='coords-bold' type='checkbox'></label>
+                    <label>Italic <input id='coords-italic' type='checkbox'></label>
+                </div>
+                <div>
+                    <label>Color: <input id='coords-color' type='color' value='#000000'></label>
+                    <label>Transparency: <input id='coords-alpha' type='range' min=0 max=1 step=0.05 value=1></label>
+                </div>
+                <div>
+                    <label>Prefix: <input id='coords-prefix' type='text' value=''></label>
+                </div>
+                <fieldset>
+                    <legend>X-Coordinate</legend>                    
+                    <div>
+                        <label>Type: 
+                            <select id='coords-x-type'>
+                                <option value='number'>Number</option>
+                                <option value='letter-upper-case'>Letter (Upper Case)</option>
+                                <option value='letter-lower-case'>Letter (Lower Case)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label>Start At: <input id='coords-x-start' type='number' value='1'></label>
+                        <label>Padding: <input id='coords-x-padding' type='text' value='00'></label>
+                    </div>
+                </fieldset>
+                <div>
+                    <label>Delimiter: <input id='coords-delimiter' type='text' value=''></label>
+                </div>
+                <fieldset id='coords-y'>
+                    <legend>Y-Coordinate</legend>                    
+                    <div>
+                        <label>Type: 
+                            <select id='coords-y-type'>
+                                <option value='number'>Number</option>
+                                <option value='letter-upper-case'>Letter (Upper Case)</option>
+                                <option value='letter-lower-case'>Letter (Lower Case)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label>Start At: <input id='coords-y-start' type='number' value='1'></label>
+                        <label>Padding: <input id='coords-y-padding' type='text' value='00'></label>
+                    </div>
+                </fieldset>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Export</legend>
+                <div>
+                    <a href='' id='save-button' class="download-btn">Save Hexmap as PNG</a>
+                </div>
+                <div>
+                    <label>Filename: <input id='export-filename' class='filename' type='text' value='STFheatmap.png'></label>
+                </div>
+            </fieldset>
+        </div>
+        
+        <div id='map-container'>
+            <div id='map-section'>
+                <canvas id="codon-canvas"></canvas>
+            </div>
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-in">+</button>
+                <button class="zoom-btn" id="zoom-out">-</button>
+                <button class="zoom-btn" id="reset-zoom">↺</button>
+            </div>
+            <div class="status-bar" id="status-bar">缩放: 100%</div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        'use strict';
+    
+        const HEX_X = Math.cos(Math.PI * (1.0 / 3.0));
+        const HEX_Y = Math.sin(Math.PI * (1.0 / 3.0));
+        
+        let canvas = document.getElementById("codon-canvas");
+        let lineCanvas = document.createElement('canvas');
+        
+        let elemMapHandedness = document.getElementById('map-handedness');
+        let elemMapHeight = document.getElementById('map-height');
+        let elemMapWidth = document.getElementById('map-width');
+        let elemCoordsY = document.getElementById('coords-y');
+        let elemCoordsDelimiter = document.getElementById('coords-delimiter');
+        let statusBar = document.getElementById('status-bar');
+        
+        let backgroundImage = null;
+        let isDragging = false;
+        let startPos = { x: 0, y: 0 };
+        let translate = { x: 0, y: 0 };
+        let scale = 1;
+        const mapSection = document.getElementById('map-section');
+        const mapContainer = document.getElementById('map-container');
+        const minScale = 0.2;
+        const maxScale = 10;
+        
+        // 优化性能的动画帧请求
+        let animationId = null;
+        let pendingUpdate = false;
+
+        let INPUT = {
+            fillData: '',
+            levelNames: [],
+            zoomScale: 1
+        };
+        
+        // Setup all control inputs
+        prepInput('hexSize', 'hex-size');
+        prepInput('hexSizeType', 'hex-size-type');
+        prepInput('hexOrientation', 'hex-orientation');
+        prepInput('hexMargin', 'hex-margin');
+        prepInput('mapShape', 'map-shape');
+        prepInput('mapHandedness', 'map-handedness');
+        prepInput('mapWidth', 'map-width');
+        prepInput('mapHeight', 'map-height');
+        prepInput('layoutStaggered', 'layout-staggered');
+        prepInput('lineShow', 'line-show');
+        prepInput('hexLineWidth', 'hex-line-width');
+        prepInput('hexLineDash', 'hex-line-dash');
+        prepInput('hexLineColor', 'hex-line-color');
+        prepInput('hexLineAlpha', 'hex-line-alpha');
+        prepInput('fillShow', 'fill-show');
+        prepInput('fillDefaultColor', 'fill-default-color');
+        prepInput('fillAlpha', 'fill-alpha');
+        prepInput('namesShow', 'names-show');
+        prepInput('namesFont', 'names-font');
+        prepInput('namesSize', 'names-size');
+        prepInput('namesBold', 'names-bold');
+        prepInput('namesItalic', 'names-italic');
+        prepInput('namesColor', 'names-color');
+        prepInput('namesAlpha', 'names-alpha');
+        prepInput('imageAlpha', 'image-alpha');
+        prepInput('coordsShow', 'coords-show');
+        prepInput('coordsStyle', 'coords-style');
+        prepInput('coordsPosition', 'coords-position');
+        prepInput('coordsOffset', 'coords-offset');
+        prepInput('coordsFont', 'coords-font');
+        prepInput('coordsSize', 'coords-size');
+        prepInput('coordsBold', 'coords-bold');
+        prepInput('coordsItalic', 'coords-italic');
+        prepInput('coordsColor', 'coords-color');
+        prepInput('coordsAlpha', 'coords-alpha');
+        prepInput('coordsPrefix', 'coords-prefix');
+        prepInput('coordsXType', 'coords-x-type');
+        prepInput('coordsXStart', 'coords-x-start');
+        prepInput('coordsXPadding', 'coords-x-padding');
+        prepInput('coordsDelimiter', 'coords-delimiter');
+        prepInput('coordsYType', 'coords-y-type');
+        prepInput('coordsYStart', 'coords-y-start');
+        prepInput('coordsYPadding', 'coords-y-padding');
+
+        onChange();
+        
+        let elemSaveButton = document.getElementById('save-button');
+        elemSaveButton.addEventListener('click', saveImage);
+        
+        let elemExportFilename = document.getElementById('export-filename');
+
+        document.getElementById('file-input').addEventListener('change', handleFileSelect, false);
+        document.getElementById('image-input').addEventListener('change', handleImageSelect, false);
+        
+        // Zoom controls
+        document.getElementById('zoom-in').addEventListener('click', () => adjustZoom(1.3));
+        document.getElementById('zoom-out').addEventListener('click', () => adjustZoom(0.7));
+        document.getElementById('reset-zoom').addEventListener('click', resetZoom);
+
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    backgroundImage = img;
+                    onChange();
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                try {
+                    parseAndApplyData(contents);
+                } catch (error) {
+                    alert("文件解析错误 (Error parsing file): " + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseAndApplyData(contents) {
+            const lines = contents.split(/[\r\n]+/);
+
+            const rowLine = lines.find(line => line.toLowerCase().startsWith('row:'));
+            const colLine = lines.find(line => line.toLowerCase().startsWith('col:'));
+            const levelLine = lines.find(line => line.toLowerCase().startsWith('level:'));
+            const nameLine = lines.find(line => line.toLowerCase().startsWith('level_name:'));
+
+            if (!rowLine || !colLine || !levelLine || !nameLine) {
+                throw new Error("文件格式无效。必须包含 'row:', 'col:', 'level:', 和 'level_name:'。");
+            }
+
+            const rowMatch = rowLine.match(/:\s*(\d+)/);
+            const colMatch = colLine.match(/:\s*(\d+)/);
+            const levelData = levelLine.substring(levelLine.indexOf(':') + 1).trim();
+            const nameData = nameLine.substring(nameLine.indexOf(':') + 1).trim();
+
+            if (!rowMatch || !colMatch || levelData.length === 0 || nameData.length === 0) {
+                    throw new Error("无法从 'row', 'col', 'level', 或 'level_name' 中提取数值。");
+            }
+
+            INPUT.mapHeight = parseInt(rowMatch[1], 10);
+            INPUT.mapWidth = parseInt(colMatch[1], 10);
+            INPUT.fillData = levelData;
+            INPUT.levelNames = nameData.split(',').map(n => n.trim());
+
+            elemMapHeight.value = INPUT.mapHeight;
+            elemMapWidth.value = INPUT.mapWidth;
+            
+            elemMapHeight.disabled = true;
+            elemMapWidth.disabled = true;
+            
+            onChange();
+            
+            // 数据加载后自动调整视图
+            setTimeout(() => {
+                fitCanvasToContainer();
+            }, 100);
+        }
+        
+        // 计算合适的canvas尺寸和缩放
+        function calculateOptimalSize() {
+            const containerRect = mapContainer.getBoundingClientRect();
+            const containerWidth = containerRect.width - 40; // 留边距
+            const containerHeight = containerRect.height - 40;
+            
+            // 计算实际需要的canvas尺寸
+            let canvasWidth, canvasHeight;
+            
+            if (INPUT.hexOrientation == 'flat') {
+                canvasWidth = getHexRadius() * (getMapWidth() + 0.5) * HEX_X * 3 + INPUT.hexLineWidth;
+                canvasHeight = getHexRadius() * (getMapHeight() + 0.65) * HEX_Y * 2 + INPUT.hexLineWidth;
+            } else {
+                canvasWidth = getHexRadius() * (getMapWidth() + 0.65) * HEX_Y * 2 + INPUT.hexLineWidth;
+                canvasHeight = getHexRadius() * (getMapHeight() + 0.5) * HEX_X * 3 + INPUT.hexLineWidth;
+            }
+            
+            // 计算最佳缩放比例
+            const scaleX = containerWidth / canvasWidth;
+            const scaleY = containerHeight / canvasHeight;
+            const optimalScale = Math.min(scaleX, scaleY, 2); // 最大不超过2倍
+            
+            return {
+                canvasWidth: Math.max(800, canvasWidth),
+                canvasHeight: Math.max(600, canvasHeight),
+                optimalScale: Math.max(0.5, optimalScale) // 最小0.5倍
+            };
+        }
+        
+        // 让canvas适配容器
+        function fitCanvasToContainer() {
+            const optimal = calculateOptimalSize();
+            scale = optimal.optimalScale;
+            translate = { x: 0, y: 0 };
+            updateTransform();
+        }
+        
+        function drawHexes() {
+            if (pendingUpdate) return;
+            
+            pendingUpdate = true;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            animationId = requestAnimationFrame(() => {
+                actualDrawHexes();
+                pendingUpdate = false;
+            });
+        }
+        
+        function actualDrawHexes() {
+            let ctx = canvas.getContext("2d");
+            let lineCTX = lineCanvas.getContext('2d');
+            
+            const optimal = calculateOptimalSize();
+            canvas.width = optimal.canvasWidth;
+            canvas.height = optimal.canvasHeight;
+            lineCanvas.width = canvas.width;
+            lineCanvas.height = canvas.height;
+            
+            // 调整canvas样式尺寸以保持清晰度
+            mapSection.style.width = canvas.width + 'px';
+            mapSection.style.height = canvas.height + 'px';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            lineCTX.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Drawing Order: Background -> Fills -> Lines -> Names -> Coords
+            if (backgroundImage) {
+                ctx.save();
+                ctx.globalAlpha = INPUT.imageAlpha;
+                const scaleFactor = Math.min(
+                    canvas.width / backgroundImage.width, 
+                    canvas.height / backgroundImage.height
+                );
+                const width = backgroundImage.width * scaleFactor;
+                const height = backgroundImage.height * scaleFactor;
+                const x = (canvas.width - width) / 2;
+                const y = (canvas.height - height) / 2;
+                ctx.drawImage(backgroundImage, x, y, width, height);
+                ctx.restore();
+            }
+
+            if (INPUT.fillShow) {
+                drawFills(ctx);
+            }
+            
+            if (INPUT.lineShow) {
+                drawLines(lineCTX);
+            }
+            ctx.save();
+            ctx.globalAlpha = INPUT.hexLineAlpha;
+            ctx.drawImage(lineCanvas, 0, 0);
+            ctx.restore();
+
+            if (INPUT.namesShow) {
+                drawNames(ctx);
+            }
+            
+            if (INPUT.coordsShow) {
+                drawCoordinates(ctx);
+            }
+        }
+
+        function getStaggeredIndex(x, y) {
+            const fullWidth = getMapWidth();
+            const shortWidth = fullWidth - 1;
+            let precedingHexes = 0;
+
+            for (let i = 0; i < y; i++) {
+                if (i % 2 === 0) {
+                    precedingHexes += fullWidth;
+                } else {
+                    precedingHexes += shortWidth;
+                }
+            }
+
+            return precedingHexes + x;
+        }
+
+        function drawFills(ctx) {
+            if (!INPUT.fillData) return;
+            let colors = INPUT.fillData.split(',').map(c => c.trim());
+
+            ctx.save();
+                ctx.globalAlpha = INPUT.fillAlpha;
+                for (var y = 0; y < getMapHeight(); y++) {
+                    for (var x = 0; x < getMapWidth(); x++) {
+                        if (hexExists({x:x,y:y})) {
+                            ctx.save();                      
+                                let coords = getHexCenter(x,y);
+                                ctx.translate(coords.x, coords.y);
+                                let index = 0;
+                                if (INPUT.mapShape=='square') {
+                                    if (INPUT.layoutStaggered) {
+                                        index = getStaggeredIndex(x, y);
+                                    } else {
+                                        index = y * getMapWidth() + x;
+                                    }
+                                } else if (INPUT.mapShape=='hexagon') {
+                                    let ri = hexagonRankIndex(x,y);
+                                    index = ri.index;
+                                }
+                                ctx.fillStyle = colors[index] || INPUT.fillDefaultColor;
+                                ctx.beginPath();
+                                    let radius = getHexRadius();
+                                    if (INPUT.hexMargin > 0) {
+                                        radius -= INPUT.hexMargin / 2;
+                                    }
+                                    drawHex(ctx, radius);
+                                ctx.fill();
+                            ctx.restore();
+                        }
+                    }
+                }
+            ctx.restore();
+        }
+
+        // MODIFICATION: New function to draw the level names
+        function drawNames(ctx) {
+            if (!INPUT.levelNames || INPUT.levelNames.length === 0) return;
+
+            ctx.save();
+                ctx.textAlign = "center";
+                ctx.textBaseline = 'middle';
+                let fontFamily = INPUT.namesFont;
+                if (!(fontFamily == 'serif' || fontFamily == 'sans-serif' || fontFamily == 'monospace')) {
+                    fontFamily = '"'+fontFamily+'"';
+                }
+                
+                // Apply zoom scaling to text size
+                const scaledFontSize = INPUT.namesSize * Math.sqrt(scale);
+                ctx.font = (INPUT.namesBold?'bold ':'') + 
+                           (INPUT.namesItalic?'italic ':'') + 
+                           scaledFontSize + 'px' + ' ' + fontFamily;
+                
+                ctx.fillStyle = INPUT.namesColor;
+                ctx.globalAlpha = INPUT.namesAlpha;
+            
+                for (var y = 0; y < getMapHeight(); y++) {  
+                    for (var x = 0; x < getMapWidth(); x++) {
+                        if (hexExists({x:x, y:y})) {
+                            ctx.save();
+                                let coords = getHexCenter(x,y);
+                                ctx.translate(coords.x, coords.y);
+                                
+                                let index = 0;
+                                if (INPUT.mapShape=='square') {
+                                    if (INPUT.layoutStaggered) {
+                                        index = getStaggeredIndex(x, y);
+                                    } else {
+                                        index = y * getMapWidth() + x;
+                                    }
+                                }else if (INPUT.mapShape=='hexagon') {
+                                    let ri = hexagonRankIndex(x,y);
+                                    index = ri.index;
+                                }
+                                const name = INPUT.levelNames[index];
+                                if(name) {
+                                    ctx.fillText(name, 0, 0);
+                                }
+                            ctx.restore();
+                        }
+                    }
+                }
+            ctx.restore();
+        }
+        
+        function drawLines(ctx) {
+            ctx.save();
+                ctx.strokeStyle = INPUT.hexLineColor;
+                ctx.lineWidth = INPUT.hexLineWidth * scale; // Scale line width
+                if (INPUT.hexLineDash == 'dashed') {
+                    ctx.setLineDash([5+2*INPUT.hexLineWidth,6+2*INPUT.hexLineWidth]);
+                } else if (INPUT.hexLineDash == 'dotted') {
+                    ctx.setLineDash([INPUT.hexLineWidth,7+INPUT.hexLineWidth]);
+                }
+                for (var y = 0; y < getMapHeight(); y++) { 
+                    for (var x = 0; x < getMapWidth(); x++) {
+                        if (hexExists({x:x, y:y})) {
+                            ctx.save();                     
+                                let coords = getHexCenter(x,y);
+                                ctx.translate(coords.x, coords.y);
+                                if (INPUT.lineShow) {
+                                    ctx.beginPath();
+                                        if (INPUT.hexMargin != 0) {
+                                            drawHex(ctx, getHexRadius() - INPUT.hexMargin/2, x, y);
+                                        } else {
+                                            drawPartialHex(ctx, getHexRadius(), x, y);
+                                            drawHexBorder(ctx,getHexRadius(), x, y);
+                                        }
+                                    ctx.stroke();
+                                }
+                            ctx.restore();
+                        }
+                    }
+                }
+            ctx.restore();
+        }
+        
+        function drawCoordinates(ctx) {
+            ctx.save();
+                ctx.textAlign = "center";
+                let textY = 0;
+                if (INPUT.coordsPosition == 'top') {
+                    ctx.textBaseline = "top";
+                    textY = getBaseTextY();
+                } else if (INPUT.coordsPosition == 'middle') {
+                    ctx.textBaseline = 'middle';
+                    textY = 0;
+                } else if (INPUT.coordsPosition == 'bottom') {
+                    ctx.textBaseline = "alphabetic";
+                    textY = -getBaseTextY();
+                }
+                let fontFamily = INPUT.coordsFont;
+                if (!(fontFamily == 'serif' || fontFamily == 'sans-serif' || fontFamily == 'monospace')) {
+                    fontFamily = '"'+fontFamily+'"';
+                }
+                
+                // Apply zoom scaling to text size
+                const scaledFontSize = INPUT.coordsSize * Math.sqrt(scale);
+                ctx.font = (INPUT.coordsBold?'bold ':'') + 
+                           (INPUT.coordsItalic?'italic ':'') + 
+                           scaledFontSize + 'px' + ' ' + fontFamily;
+                
+                ctx.fillStyle = INPUT.coordsColor;
+                ctx.globalAlpha = INPUT.coordsAlpha;
+                for (var y = 0; y < getMapHeight(); y++) {  
+                    for (var x = 0; x < getMapWidth(); x++) {
+                        if (hexExists({x:x, y:y})) {
+                            ctx.save();
+                                let coords = getHexCenter(x,y);
+                                ctx.translate(coords.x, coords.y);
+                                let hexString = '';
+                                if (INPUT.coordsStyle=='xy') {
+                                    hexString = INPUT.coordsPrefix + processXCoord(x) + INPUT.coordsDelimiter + processYCoord(y);
+                                } else if (INPUT.coordsStyle=='index') {
+                                    let index = 0;
+                                    if (INPUT.mapShape=='square') {
+                                        if (INPUT.layoutStaggered) {
+                                            index = getStaggeredIndex(x, y);
+                                        } else {
+                                            index = y * getMapWidth() + x;
+                                        }
+                                    }else if (INPUT.mapShape=='hexagon') {
+                                        let ri = hexagonRankIndex(x,y);
+                                        index = ri.index;
+                                    }
+                                    hexString = INPUT.coordsPrefix + processXCoord(index);
+                                }
+                                ctx.fillText(hexString, 0, textY);
+                            ctx.restore();
+                        }
+                    }
+                }
+            ctx.restore();
+        }
+        
+        function drawHex(ctx, r) {
+            var hx = HEX_X * r;
+            var hy = HEX_Y * r;
+            ctx.save()
+                if (INPUT.hexOrientation == 'pointy') {
+                    ctx.rotate(Math.PI*0.5);
+                }
+                ctx.moveTo(0,-hy);
+                ctx.lineTo(-hx, -hy);
+                ctx.lineTo(-r,0);
+                ctx.lineTo(-hx, hy);
+                ctx.lineTo(hx, hy);
+                ctx.lineTo(r, 0);
+                ctx.lineTo(hx, -hy);
+                ctx.closePath();
+            ctx.restore();
+        }
+        
+        function drawPartialHex(ctx,r,x,y) {
+            var hx = HEX_X * r;
+            var hy = HEX_Y * r;
+            ctx.save();
+                if (INPUT.hexOrientation == 'pointy') {
+                    ctx.rotate(-Math.PI/2);
+                    ctx.scale(-1,1);
+                }
+                if (hexExists(getNeighbor(x,y,0))) {
+                    ctx.moveTo(r,0);
+                    ctx.lineTo(hx,-hy);
+                }
+                if (hexExists(getNeighbor(x,y,1))) {
+                    ctx.moveTo(hx,-hy);
+                    ctx.lineTo(-hx,-hy);
+                }
+                if (hexExists(getNeighbor(x,y,2))) {
+                    ctx.moveTo(-hx,-hy);
+                    ctx.lineTo(-r,0);
+                }
+            ctx.restore();
+        }
+        
+        function drawHexBorder(ctx,r,x,y) {
+            var hx = HEX_X * r;
+            var hy = HEX_Y * r;
+            let hx2 = (hx+r) / 2;
+            let hy2 = hy / 2;
+            let neighbors = [];
+            for (let i=0; i<6; i++) {
+                neighbors.push(!hexExists(getNeighbor(x,y,i)));
+            }
+            let coords = [ [r,0],[hx2,-hy2],[hx,-hy],[0,-hy],[-hx,-hy],[-hx2,-hy2],[-r,0],[-hx2,hy2],[-hx,hy],[0,hy],[hx,hy],[hx2,hy2] ];
+            let prev = false;
+            ctx.save()
+                for (let i = 0; i < 6; i++) {
+                    let c1 = coords[(i*2+1)%12];
+                    let c2 = coords[(i*2+2)%12];
+                    let c3 = coords[(i*2+3)%12];
+                    let n1 = neighbors[i];
+                    let n2 = neighbors[(i+1)%6];
+                    ctx.save();
+                        if (INPUT.hexOrientation == 'pointy') {
+                            ctx.rotate(-Math.PI/2);
+                            ctx.scale(-1,1);
+                        }
+                        if (n1 && n2) {
+                            if (!prev) { ctx.moveTo(c1[0],c1[1]); }
+                            ctx.lineTo(c2[0],c2[1]);
+                            ctx.lineTo(c3[0],c3[1]);
+                            prev = true;
+                        } else if (n1 && !n2) {
+                            if (!prev) { ctx.moveTo(c1[0],c1[1]); }
+                            ctx.lineTo(c2[0],c2[1]);               
+                            prev = false;
+                        } else if (!n1 && n2) {
+                            if (!prev) { ctx.moveTo(c2[0],c2[1]); }
+                            ctx.lineTo(c3[0],c3[1]);
+                            prev = true;
+                        } else {
+                            prev = false;
+                        }
+                    ctx.restore();
+                }
+            ctx.restore();
+        }
+        
+        function getNeighbor(x,y,i) {
+            if (INPUT.hexOrientation == 'pointy') {
+                let temp = x;
+                x=y;
+                y=temp;
+            }
+            let oddhand = x%2==0;
+            if (getMapHandedness() == 'odd') {
+                oddhand = !oddhand;
+            }
+            let result = {x:0,y:0};
+            if (i==0) { result = {x:x+1, y:(oddhand?y-1:y)}; }
+            else if (i==1) { result = {x:x,y:y-1}; }
+            else if (i==2) { result = {x:x-1, y:(oddhand?y-1:y)}; }
+            else if (i==3) { result = {x:x-1, y:(oddhand?y:y+1)}; }
+            else if (i==4) { result = {x:x,y:y+1}; }
+            else if (i==5) { result = {x:x+1, y:(oddhand?y:y+1)}; }
+            if (INPUT.hexOrientation == 'pointy') {
+                let temp = result.x;
+                result.x=result.y;
+                result.y=temp;
+            }           
+            return result;
+        }
+        
+        function hexExists(c) {
+            let x = c.x;
+            let y = c.y;
+            if (INPUT.mapShape == 'hexagon') {
+                return isInHexagon(x,y);
+            } else {
+                if (y < 0 || y >= getMapHeight() || x < 0) {
+                    return false;
+                }
+                if (INPUT.layoutStaggered) {
+                    const widthForRow = getMapWidth() - (y % 2);
+                    return x < widthForRow;
+                } else {
+                    return x < getMapWidth();
+                }
+            }
+        }
+        
+        function getHexCenter(cx, cy) {          
+            if (INPUT.hexOrientation == 'pointy') {
+                let temp=cx;
+                cx=cy;
+                cy=temp;
+            }
+            var x = cx * HEX_X * getHexRadius() * 3;
+            if (getMapHandedness() == 'odd') {
+                cx++;
+            }
+            var y = (cy + 0.5 * (cx%2)) * HEX_Y * getHexRadius() * 2
+            x += 0.75 * HEX_X * getHexRadius() * 3 + INPUT.hexLineWidth/2;
+            y += 0.57 * HEX_Y * getHexRadius() * 2 + INPUT.hexLineWidth/2;
+            if (INPUT.hexOrientation == 'pointy') {
+                let temp=x;
+                x=y;
+                y=temp;
+            }           
+            return {x:x, y:y};
+        }
+
+        function hexagonRankIndex(x,y) {
+            if (INPUT.hexOrientation=='pointy') {
+                let temp = x;
+                x=y;
+                y=temp;
+            }
+            let cx=(getMapWidth()-1)/2;
+            let cy=cx;
+            let odd = cx%2==1;
+            let dx = x-cx;
+            let adx = Math.abs(dx);
+            let dy = y-cy;
+            if (INPUT.hexOrientation=='pointy') {
+                dx=-dx;
+            }
+            let minY = -Math.floor((adx+(odd?0:1))/2);
+            let maxY = Math.floor((adx+(odd?1:0))/2);
+            let index = 0;
+            let rank = 0;
+            if (dy>=minY && dy<=maxY) {
+                rank = adx;
+                if (dx < 0) {
+                    index = 4*rank+(rank-dy+minY);
+                } else {
+                    index = 1*rank+(rank-maxY+dy);
+                }
+            } else if (dy < minY) {
+                rank = adx + minY-dy;
+                if (dx < 0) {
+                    index = 5*rank+(rank+dx);
+                } else {
+                    index = 0*rank+(dx);
+                }               
+            } else {
+                rank = adx + dy-maxY;
+                if (dx < 0) {
+                    index = 3*rank+(-dx);
+                } else {
+                    index = 2*rank+(rank-dx);
+                }   
+            }
+            if (rank == 0) {
+                index = 0;
+            } else {
+                index += 1+6*(rank*(rank-1))/2;
+            }
+            return {rank:rank, index:index};
+        }
+
+        function isInHexagon(x,y) {
+            let maxRank = (getMapWidth()-1)/2;
+            let ri = hexagonRankIndex(x,y);
+            return ri.rank <= maxRank;
+        }
+
+        function getBaseTextY() {
+            return -getHexRadius() * HEX_Y + INPUT.hexMargin/2 + INPUT.hexLineWidth/2 + INPUT.coordsOffset;
+        }
+        
+        function prepInput(dataId, elementId, defaultValue=1) {
+            let elem = document.getElementById(elementId);
+            takeValue();
+            elem.addEventListener('input', function() {
+                takeValue();
+                onChange();
+            });
+            function takeValue() {
+                let v = elem.value;
+                if (elem.type=='number' || elem.type=='range') {
+                    v = parseFloat(v);
+                    if (isNaN(v)) {v=defaultValue;}
+                } else if (elem.type=='checkbox') {
+                    v = elem.checked;
+                }
+                INPUT[dataId] = v;              
+            }
+        }
+        
+        function onChange() {
+            if (INPUT.mapShape == 'hexagon') {
+                elemMapHandedness.disabled = true;
+            } else {
+                elemMapHandedness.disabled = false;
+            }
+            if (INPUT.coordsStyle == 'index') {
+                elemCoordsY.disabled = true;
+                elemCoordsDelimiter.disabled = true;
+            } else {
+                elemCoordsY.disabled = false;
+                elemCoordsDelimiter.disabled = false;
+            }
+            drawHexes();
+        }
+        
+        function updateTransform() {
+            mapSection.style.transform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`;
+            statusBar.textContent = `缩放: ${Math.round(scale * 100)}%`;
+        }
+        
+        function adjustZoom(factor) {
+            const rect = mapContainer.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            // 计算相对于容器中心的坐标
+            const offsetX = (centerX - translate.x - rect.width/2) / scale;
+            const offsetY = (centerY - translate.y - rect.height/2) / scale;
+            
+            const newScale = Math.min(Math.max(minScale, scale * factor), maxScale);
+            
+            // 调整位移使缩放中心保持稳定
+            translate.x += offsetX * (scale - newScale);
+            translate.y += offsetY * (scale - newScale);
+            
+            scale = newScale;
+            updateTransform();
+            drawHexes();
+        }
+        
+        function resetZoom() {
+            translate = { x: 0, y: 0 };
+            scale = 1;
+            updateTransform();
+            drawHexes();
+        }
+
+        function getHexRadius() {
+            if (INPUT.hexSizeType=='edge') {
+                return 0.5*INPUT.hexSize/HEX_Y;
+            } else {
+                return 0.5*INPUT.hexSize;
+            }
+        }
+        
+        function getMapHandedness() {
+            return INPUT.mapShape=='hexagon'?'even':INPUT.mapHandedness
+        }
+        
+        function getMapWidth() {
+            let res = INPUT.mapWidth;
+            if (INPUT.mapShape=='hexagon' && res%2==0) { res--; }
+            return res;
+        }
+        
+        function getMapHeight() {
+            if (INPUT.mapShape=='hexagon') {
+                return getMapWidth();
+            }
+            return INPUT.mapHeight;
+        }
+        
+        function letterize(i) {
+            let res = '';
+            if (i==0) { return 'A'; }
+            while (i > 0) {
+                res = String.fromCharCode(i%26+65) + res;
+                i = Math.floor(i/26);
+            }
+            return res;
+        }
+        
+        function processXCoord(x) {
+            let res = '';
+            x += INPUT.coordsXStart;
+            if (INPUT.coordsXType=='number') {
+                res = x.toString()
+            } else if (INPUT.coordsXType=='letter-upper-case') {
+                res = letterize(x);
+            }  else if (INPUT.coordsXType=='letter-lower-case') {
+                res = letterize(x).toLowerCase();
+            }
+            res = res.padStart(INPUT.coordsXPadding.length, INPUT.coordsXPadding);
+            return res;
+        }
+        
+        function processYCoord(y) {
+            let res = '';
+            y += INPUT.coordsYStart;
+            if (INPUT.coordsYType=='number') {
+                res = y.toString()
+            } else if (INPUT.coordsYType=='letter-upper-case') {
+                res = letterize(y);
+            }  else if (INPUT.coordsYType=='letter-lower-case') {
+                res = letterize(y).toLowerCase();
+            }
+            res = res.padStart(INPUT.coordsYPadding.length, INPUT.coordsYPadding);
+            return res;
+        }
+        
+        function saveImage() { 
+            elemSaveButton.href = canvas.toDataURL('image/png', 1.0);
+            let filename = elemExportFilename.value;
+            if (filename == '') {
+                filename='hexmap.png';
+            }
+            elemSaveButton.download = filename;
+        }
+
+        function initDragAndZoom() {
+            // 拖动功能
+            mapSection.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return; // 只响应左键
+                isDragging = true;
+                startPos = {
+                    x: e.clientX - translate.x,
+                    y: e.clientY - translate.y
+                };
+                mapSection.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                translate.x = e.clientX - startPos.x;
+                translate.y = e.clientY - startPos.y;
+                
+                updateTransform();
+                e.preventDefault();
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                mapSection.style.cursor = 'grab';
+            });
+
+            // 缩放功能
+            mapContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                const delta = -Math.sign(e.deltaY);
+                const zoomFactor = 0.1;
+                const rect = mapContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // 计算鼠标相对于地图容器的位置
+                const containerX = mouseX - translate.x;
+                const containerY = mouseY - translate.y;
+                
+                // 计算缩放前的鼠标相对于地图中心的位置
+                const mapX = containerX / scale;
+                const mapY = containerY / scale;
+                
+                // 应用缩放
+                const newScale = Math.min(Math.max(minScale, scale * (1 + delta * zoomFactor)), maxScale);
+                
+                // 计算缩放后需要调整的位移，使鼠标位置保持固定
+                translate.x -= mapX * (newScale - scale);
+                translate.y -= mapY * (newScale - scale);
+                
+                scale = newScale;
+                updateTransform();
+                drawHexes();
+            }, { passive: false });
+
+            // 双击重置视图
+            mapContainer.addEventListener('dblclick', () => {
+                resetZoom();
+            });
+        }
+
+        // 初始化函数调用
+        initDragAndZoom();
+    </script>
+</body>
+</html>
