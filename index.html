@@ -561,7 +561,7 @@
         prepInput('coordsYStart', 'coords-y-start');
         prepInput('coordsYPadding', 'coords-y-padding');
 
-        onChange();
+        // onChange();
         
         let elemSaveButton = document.getElementById('save-button');
         elemSaveButton.addEventListener('click', saveImage);
@@ -606,6 +606,46 @@
                 }
             };
             reader.readAsText(file);
+        }
+
+
+        async function loadDataFromRepository() {
+            // !!! 重要: 请替换成您自己的 GitHub Pages 链接 !!!
+            const textDataUrl = 'https://pinshengduan.github.io/STF_Risk_Hexgrid/output.txt';
+            const imageUrl = 'https://pinshengduan.github.io/STF_Risk_Hexgrid/sampled_image_full.png';
+
+            statusBar.textContent = '正在加载默认地图...';
+
+            try {
+                const [textResponse, imageResponse] = await Promise.all([
+                    fetch(textDataUrl),
+                    fetch(imageUrl)
+                ]);
+
+                if (!textResponse.ok) throw new Error(`加载数据文件失败: ${textResponse.statusText}`);
+                if (!imageResponse.ok) throw new Error(`加载图片失败: ${imageResponse.statusText}`);
+
+                // 处理文本数据
+                const textContent = await textResponse.text();
+                parseAndApplyData(textContent);
+
+                // 处理图片数据
+                const imageBlob = await imageResponse.blob();
+                const img = new Image();
+                img.onload = function() {
+                    backgroundImage = img;
+                    URL.revokeObjectURL(this.src); // 释放内存
+                    onChange(); // 加载完默认数据和图片后，进行首次绘制
+                    statusBar.textContent = '地图加载成功。您可以上传自己的文件。';
+                };
+                img.onerror = function() { throw new Error("处理图片时出错。"); };
+                img.src = URL.createObjectURL(imageBlob);
+
+            } catch (error) {
+                console.error("加载默认数据时出错:", error);
+                alert("无法从仓库加载默认地图数据。" + error.message);
+                statusBar.textContent = '加载默认地图失败。';
+            }
         }
 
         function parseAndApplyData(contents) {
@@ -1360,6 +1400,7 @@
 
         // 初始化函数调用
         initDragAndZoom();
+        loadDataFromRepository();
     </script>
 </body>
 </html>
